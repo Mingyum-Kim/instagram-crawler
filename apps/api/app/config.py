@@ -1,0 +1,7 @@
+import os
+
+SYNC_INTERVAL_SECONDS = int(os.getenv("SYNC_INTERVAL_SECONDS", "300"))
+WEEKLY_DIGEST_CRON_DAY = os.getenv("WEEKLY_DIGEST_CRON_DAY", "mon")
+WEEKLY_DIGEST_CRON_HOUR = int(os.getenv("WEEKLY_DIGEST_CRON_HOUR", "9"))
+WEEKLY_DIGEST_CRON_MINUTE = int(os.getenv("WEEKLY_DIGEST_CRON_MINUTE", "0"))
+APP_ENV = os.getenv("APP_ENV", "development")

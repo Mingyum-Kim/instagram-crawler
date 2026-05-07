@@ -1,0 +1,99 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: insta_postgres
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+      POSTGRES_DB: insta_org
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d insta_org"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7
+    container_name: insta_redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ./apps/api
+    container_name: insta_api
+    environment:
+      DATABASE_URL: postgresql+psycopg://user:pass@postgres:5432/insta_org
+      REDIS_URL: redis://redis:6379/0
+      PYTHONPATH: /app
+      APP_ENV: production
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ./apps/api
+    container_name: insta_worker
+    environment:
+      DATABASE_URL: postgresql+psycopg://user:pass@postgres:5432/insta_org
+      REDIS_URL: redis://redis:6379/0
+      PYTHONPATH: /app
+      SYNC_INTERVAL_SECONDS: 300
+    command: ["python", "-m", "app.workers.runner"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  scheduler:
+    build:
+      context: ./apps/api
+    container_name: insta_scheduler
+    environment:
+      DATABASE_URL: postgresql+psycopg://user:pass@postgres:5432/insta_org
+      REDIS_URL: redis://redis:6379/0
+      PYTHONPATH: /app
+      WEEKLY_DIGEST_CRON_DAY: mon
+      WEEKLY_DIGEST_CRON_HOUR: 9
+      WEEKLY_DIGEST_CRON_MINUTE: 0
+    command: ["python", "-m", "app.workers.scheduler"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./apps/web
+    container_name: insta_web
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8000/api/v1
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  pgdata:
